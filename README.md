@@ -11,3 +11,5 @@ Keep hacking :-)
 ## Health check
 
 `GET /health` returns `{"status": "ok"}`.
+
+Run the tests with `pytest`.
