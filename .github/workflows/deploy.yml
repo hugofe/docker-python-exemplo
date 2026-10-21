@@ -1,0 +1,49 @@
+name: Deploy
+
+# A SIMULATED deploy for the 8Manager end-to-end test: nothing is released anywhere. Each job reports the deploy of
+# this commit to 8Manager (keyless: GitHub OIDC), dev first, then prod.
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  dev:
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - name: Deploy (simulated)
+        run: echo "deploying ${{ github.sha }} to dev"
+      - name: Report deploy to 8Manager
+        env:
+          API_URL: https://khnmus0i56.execute-api.us-east-1.amazonaws.com
+          ENV_NAME: ${{ github.job }}
+        run: |
+          TOKEN=$(curl -sS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=8manager-ingest" | jq -r '.value')
+          code=$(curl -sS -o resp.txt -w '%{http_code}' -X POST "$API_URL/ingest" \
+            -H "Authorization: Bearer $TOKEN" -H "content-type: application/json" \
+            -d "{\"environment\":\"$ENV_NAME\",\"status\":\"success\",\"commit_sha\":\"${{ github.sha }}\"}") || true
+          echo "8Manager /ingest -> HTTP $code"; cat resp.txt || true
+  prod:
+    needs: dev
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - name: Deploy (simulated)
+        run: echo "deploying ${{ github.sha }} to prod"
+      - name: Report deploy to 8Manager
+        env:
+          API_URL: https://khnmus0i56.execute-api.us-east-1.amazonaws.com
+          ENV_NAME: ${{ github.job }}
+        run: |
+          TOKEN=$(curl -sS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=8manager-ingest" | jq -r '.value')
+          code=$(curl -sS -o resp.txt -w '%{http_code}' -X POST "$API_URL/ingest" \
+            -H "Authorization: Bearer $TOKEN" -H "content-type: application/json" \
+            -d "{\"environment\":\"$ENV_NAME\",\"status\":\"success\",\"commit_sha\":\"${{ github.sha }}\"}") || true
+          echo "8Manager /ingest -> HTTP $code"; cat resp.txt || true

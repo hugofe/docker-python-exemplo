@@ -1,0 +1,40 @@
+name: Tests
+
+# Runs the test suite and reports the JUnit results to 8Manager (keyless: GitHub OIDC). Non-blocking for 8Manager:
+# a reporting failure never fails the build; a failing test does.
+on:
+  pull_request:
+    branches: [ master ]
+  push:
+    branches: [ master ]
+
+permissions:
+  id-token: write   # mint the OIDC token 8Manager's ingest verifies
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install flask redis pytest
+      - name: Run tests
+        run: pytest -q --junitxml=junit.xml || [ $? -eq 5 ]   # 5 = no tests collected (master before the first test)
+      - name: Report results to 8Manager
+        if: always()
+        env:
+          API_URL: https://khnmus0i56.execute-api.us-east-1.amazonaws.com
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          [ -f junit.xml ] || { echo "no junit.xml"; exit 0; }
+          TOKEN=$(curl -sS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=8manager-ingest" | jq -r '.value') || exit 0
+          jq -n --rawfile junit junit.xml --arg sha "$SHA" --arg run "${{ github.run_id }}-${{ github.run_attempt }}" \
+            --arg branch "$BRANCH" '{junit: $junit, commit_sha: $sha, run_id: $run, branch: $branch}' > body.json
+          code=$(curl -sS -o resp.txt -w '%{http_code}' -X POST "$API_URL/ingest/test-results" \
+            -H "Authorization: Bearer $TOKEN" -H "content-type: application/json" --data @body.json) || true
+          echo "8Manager /ingest/test-results -> HTTP $code"; cat resp.txt || true
