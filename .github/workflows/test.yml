@@ -22,7 +22,7 @@ jobs:
           python-version: "3.12"
       - run: pip install flask redis pytest
       - name: Run tests
-        run: pytest -q --junitxml=junit.xml || [ $? -eq 5 ]   # 5 = no tests collected (master before the first test)
+        run: python -m pytest -q --junitxml=junit.xml || [ $? -eq 5 ]   # 5 = no tests collected (master before the first test)
       - name: Report results to 8Manager
         if: always()
         env:
