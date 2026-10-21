@@ -7,3 +7,7 @@ Caso não tenha visto, segue o link:
 https://www.youtube.com/watch?v=WRJDGo0HWng&feature=youtu.be
 
 Keep hacking :-)
+
+## Health check
+
+`GET /health` returns `{"status": "ok"}`.
